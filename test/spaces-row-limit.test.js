@@ -14,6 +14,7 @@ const ipc = require('../lib/ipc');
 const managed = require('../lib/managed-config');
 const palette = require('../lib/palette');
 const state = require('../lib/state');
+const config = require('../lib/config');
 const identity = require('../lib/identity');
 
 test('every generated sidebar row fits Herdr’s sixteen tokens', () => {
@@ -54,7 +55,11 @@ test('retired working marks are cleared once, before the state is written', asyn
   await state.writeSpaceState('test', 'w-limit', 'space_none', '·', {}, 'name');
   const firstBatch = sent.length;
   assert.ok(firstBatch >= 2, 'nothing was cleared before the write');
-  assert.deepEqual(sent[0].sort(), [...state.RETIRED_SPACE_TOKENS].sort(), 'the first report was not the clear');
+  const retired = [
+    ...state.RETIRED_SPACE_TOKENS,
+    ...(config.spaceOwner && config.parentLabelToken ? [] : ['space_owner']),
+  ];
+  assert.deepEqual(sent[0].sort(), retired.sort(), 'the first report was not the clear');
   await state.writeSpaceState('test', 'w-limit', 'space_none', '·', {}, 'name');
   const again = sent.slice(firstBatch);
   assert.ok(

@@ -98,10 +98,22 @@ const cases = [
     'parent tokens 12: a synthetic token-parent header bypasses the render hook',
   ],
   [
+    'lib/state.js',
+    "const RETIRED_OWNER_TOKENS = config.spaceOwner && config.parentLabelToken ? [] : ['space_owner'];",
+    'const RETIRED_OWNER_TOKENS = [];',
+    'parent tokens 13: disabling the owner cell leaves its stale token behind',
+  ],
+  [
     'lib/workspace-order.js',
     '      if (index > 0) group.ids.unshift(...group.ids.splice(index, 1));',
     '',
     'parent tokens 7: Spaces keeps a child ahead of its parent',
+  ],
+  [
+    'lib/state.js',
+    '  if (config.spaceOwner && config.parentLabelToken) tokens.space_owner = owner;',
+    '  tokens.space_owner = owner;',
+    'parent tokens 8: owner token is published while disabled',
   ],
   [
     'lib/state.js',
@@ -121,6 +133,13 @@ const cases = [
     '    const root = rootOf(workspaceId, parents);',
     '    const root = workspaceId;',
     'parent tokens RM7: Spaces ignores parents of agent-less project members',
+  ],
+
+  [
+    'lib/palette.js',
+    'const SPACE_ROW_FIXED_CELLS = 7 + (config.spaceOwner && config.parentLabelToken ? 1 : 0);',
+    'const SPACE_ROW_FIXED_CELLS = 7;',
+    'spaces owner: reserving no cell pushes the enabled row past sixteen tokens',
   ],
 
   // lib/font.js — the terminal blocks. #4 and #8 were both shipped for months.

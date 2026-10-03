@@ -248,6 +248,7 @@ the config file and restarts the daemon.
 | `reorder_workspaces` | `false` | make Herdr's workspace indices follow Radar's activity order |
 | `parent_token` | `""` | workspace token whose value names an open parent workspace id; overrides git grouping |
 | `parent_label_token` | `""` | workspace token whose value names a family when its parent is absent |
+| `space_owner` | `false` | show the family label after a member's name in Spaces; needs `parent_label_token` |
 | `row_label` | `title` | what names an agent row: `title`, `tab` (the tab's name) or `both`; replaces `show_tab` |
 | `trim_group_prefix` | `true` | drop the workspace name from a title when the header above already shows it |
 | `worktree_mark` | `U+F418` | the mark on a worktree header, needs a Nerd Font; empty for none |
@@ -279,6 +280,7 @@ Tell Radar which names to read in its plugin config:
 ```toml
 parent_token = "project_parent"
 parent_label_token = "project_name"
+space_owner = true
 ```
 
 Put `project_name` on members only, because a workspace with that label and
@@ -297,8 +299,15 @@ token-free worktrees remain separate git orphans.
 Members with only a label share one header. If an open token parent carries
 that label, they join its family instead. The active view keeps families
 together; recent stays flat. `reorder_workspaces` keeps families together in
-Spaces with the parent first. Without these settings, grouping and Spaces rows
-keep their existing behavior.
+Spaces with the parent first. `space_owner` adds a subdued family label to
+members' Spaces rows, including members with no running agent; the parent
+itself gets no owner label. With `space_owner` enabled, Kimchi uses the generic
+working mark to reserve a cell for the owner within Herdr's sixteen-token
+row limit. Kimchi is the newest vendor that still has its own working cell;
+the eight older vendors keep theirs, and all logos keep their brand colour.
+Turning `space_owner` off or removing `parent_label_token` clears the old
+owner token. Without these settings, grouping and Spaces rows keep their
+existing behavior.
 
 Herdr leaves the workspace jump **unbound by default** — `switch_tab` ships as `prefix+1..9`,
 the workspace one does not ship at all — so bind it before expecting the keys to do anything:

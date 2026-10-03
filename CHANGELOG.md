@@ -6,9 +6,15 @@
   the token carrying an open parent workspace id; `parent_label_token` names
   the family label, shared under one header when no parent is open. Token
   parents override git grouping and stay top-level. Families stay together
-  in the active view and workspace ordering; recent stays flat.
+  in the active view and workspace ordering; recent stays flat. Optional
+  `space_owner` shows a subdued family label after each member's Spaces name.
   For example, `project_parent` and `project_name` group a project's members.
-  Both settings are off by default.
+  All three settings are off by default. With `space_owner` enabled, Kimchi
+  uses the generic working mark to keep the Spaces row within Herdr's
+  sixteen-token limit: it is the newest vendor that still has its own working
+  cell, so the older vendors keep theirs. Its logo keeps its brand colour.
+  Turning the owner setting off or removing the label setting clears the
+  old owner token.
 
 ## 1.4.2 — 2026-10-04
 

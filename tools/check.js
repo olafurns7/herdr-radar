@@ -497,14 +497,18 @@ if (unstable) {
     const { Frame } = require('./lib/frame');
     const { desiredOrder } = require('./lib/workspace-order');
     const managed = require('./lib/managed-config');
+    const palette = require('./lib/palette');
     const paneTokens = {};
-    const spaceTokens = {};
+    const spaceTokens = Object.fromEntries(input.list.map(ws => [ws.workspace_id,
+      ws.tokens?.space_owner ? { space_owner: ws.tokens.space_owner } : {}]));
+    const spaceReports = [];
     herdr.tabsAsync = async () => [{ tab_id: 't', label: '1' }];
     herdr.workspacesAsync = async () => input.list;
     herdr.reportMetadataAsync = async (id, source, tokens) => {
       paneTokens[id] = { ...paneTokens[id], ...tokens }; return true;
     };
     herdr.reportWorkspaceMetadataAsync = async (id, source, tokens) => {
+      spaceReports.push([id, tokens]);
       spaceTokens[id] = { ...spaceTokens[id], ...tokens }; return true;
     };
     (async () => {
@@ -519,25 +523,38 @@ if (unstable) {
       const grouped = frame.displayOrder(entries, 'grouped', keys);
       await state.writeGroups('fixture', grouped, tree.workspaces, new Set(), keys);
       const jobs = [];
-      frame.spaceJobs(new Map(), tree.workspaces, 60000, jobs);
+      const agents = input.workingVendor
+        ? new Map([[input.list[1].workspace_id, [input.workingVendor, ...palette.brandVendors.filter(v => v !== input.workingVendor)]
+            .map(name => ({ name, display: 'working' }))]])
+        : new Map();
+      frame.spaceJobs(agents, tree.workspaces, 60000, jobs, tree.owners);
       await Promise.all(jobs);
-      const beforeClear = JSON.parse(JSON.stringify(spaceTokens));
+      const beforeOwnerChange = JSON.parse(JSON.stringify(spaceTokens));
+      const changedJobs = [];
+      const changedOwners = new Map([...tree.owners].map(([id]) => [id, 'renamed']));
+      frame.spaceJobs(agents, tree.workspaces, 60001, changedJobs, changedOwners);
+      await Promise.all(changedJobs);
+      const afterOwnerChange = JSON.parse(JSON.stringify(spaceTokens));
+      const stateReports = spaceReports.slice();
       await state.clearSpaceState('fixture', input.list[0].workspace_id);
       const order = input.order ?? input.list.map(ws => ws.workspace_id);
       const spaces = desiredOrder(order, keys.wsKeys, tree.parents);
       const spacesAgain = desiredOrder(spaces, keys.wsKeys, tree.parents);
       console.log(JSON.stringify({
-        config: [config.parentToken, config.parentLabelToken],
+        config: [config.parentToken, config.parentLabelToken, config.spaceOwner],
         parents: [...tree.parents], worktrees: [...tree.worktrees], families: [...tree.familyLabels],
-        keys: [...keys.wsKeys], paneTokens,
-        spaceTokens: beforeClear, cleared: spaceTokens[input.list[0].workspace_id],
+        owners: [...tree.owners], keys: [...keys.wsKeys], paneTokens,
+        roster: palette.spaceWorkingVendors, retired: state.RETIRED_SPACE_TOKENS, spaceReports, stateReports,
+        workingTokens: Object.fromEntries([...palette.brandVendors, 'other'].map(v => [v, state.spaceToken('working', v)])),
+        overLimit: ['light', 'dark'].map(v => managed.blockOverLimit(managed.sidebarBlock(v))),
+        spaceTokens: beforeOwnerChange, afterOwnerChange, cleared: spaceTokens[input.list[0].workspace_id],
         grouped: grouped.map(entry => entry.workspace),
         recent: frame.displayOrder(entries, 'recent', keys).map(entry => entry.workspace),
         spaces, spacesAgain, blocks: ['light', 'dark'].map(v => managed.sidebarBlock(v)),
       }));
     })().catch(error => { console.error(error); process.exitCode = 1; });
   `;
-  const inspect = (list, toml = '', order, tied = false) => {
+  const inspect = (list, toml = '', order, tied = false, workingVendor = '') => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radar-parent-check-'));
     try {
       fs.writeFileSync(path.join(dir, 'config.toml'), toml);
@@ -548,7 +565,7 @@ if (unstable) {
       return JSON.parse(
         execFileSync(process.execPath, ['-e', fixture], {
           cwd: root,
-          input: JSON.stringify({ list, order, tied }),
+          input: JSON.stringify({ list, order, tied, workingVendor }),
           env: {
             ...process.env,
             HERDR_PLUGIN_CONFIG_DIR: dir,
@@ -592,17 +609,22 @@ if (unstable) {
   check('1 defaults preserve git maps and published tokens', () => {
     const list = [ws('main', null, null, false), ws('branch', 'project', 'Alpha', true), ws('project')];
     const before = inspect(list);
-    const explicit = inspect(list, 'parent_token = ""\nparent_label_token = ""\n');
-    assert.deepEqual(before.config, ['', '']);
+    const explicit = inspect(list, 'parent_token = ""\nparent_label_token = ""\nspace_owner = true\n');
+    assert.deepEqual(before.config, ['', '', false]);
     assert.deepEqual(before.parents, [['branch', 'main']]);
     assert.deepEqual(before.worktrees, [['branch', 'r']]);
     for (const field of ['parents', 'keys', 'paneTokens', 'spaceTokens', 'blocks', 'spaces', 'recent']) {
       assert.deepEqual(explicit[field], before[field], field);
     }
+    assert(Object.values(before.spaceTokens).every((t) => t.space_owner === null));
     assert.equal(before.paneTokens['branch:p'].group_parent, null);
     assert(before.paneTokens['branch:p'].group.includes('└─'));
     assert.equal(before.paneTokens['main:p'].gap, null);
-    assert.deepEqual(inspect(list, 'parent_token = true\nparent_label_token = 7\n').config, ['', '']);
+    assert.deepEqual(inspect(list, 'parent_token = true\nparent_label_token = 7\nspace_owner = "true"\n').config, [
+      '',
+      '',
+      false,
+    ]);
   });
   check('2 token parent overrides git', () => {
     const result = inspect(
@@ -722,6 +744,85 @@ if (unstable) {
     assert(result.spaces.indexOf('parent') < result.spaces.indexOf('quiet'));
     assert.deepEqual(result.spacesAgain, result.spaces);
   });
+  check('8 owner publication is opt-in and only for members', () => {
+    const list = [
+      ws('parent', null, 'Alpha'),
+      ws('a', 'parent'),
+      ws('b', 'parent', 'Alpha'),
+      ws('c', null, 'Alpha'),
+      ws('other'),
+    ];
+    const disabled = inspect(list, settings);
+    const enabled = inspect(list, settings + 'space_owner = true\n');
+    const unconfigured = inspect(list);
+    assert.deepEqual(disabled.blocks, unconfigured.blocks, 'disabled block is byte-identical');
+    assert(Object.values(disabled.spaceTokens).every((t) => t.space_owner === null));
+    assert(disabled.stateReports.every(([, tokens]) => !('space_label' in tokens && 'space_owner' in tokens)));
+    for (const id of ['a', 'b', 'c']) {
+      assert.equal(enabled.spaceTokens[id].space_owner, 'Alpha');
+      assert.equal(enabled.afterOwnerChange[id].space_owner, 'renamed', 'owner changes are republished');
+    }
+    for (const id of ['parent', 'other']) assert.equal(enabled.spaceTokens[id].space_owner, null);
+    assert.equal(enabled.cleared.space_owner, null);
+    for (let i = 0; i < 2; i++) {
+      const ownerCell = /,\n    (\{ token = "\$space_owner"[^\n]+\})/.exec(enabled.blocks[i]);
+      assert(ownerCell);
+      const variant = i === 0 ? 'light' : 'dark';
+      assert.equal(
+        ownerCell[1],
+        `{ token = "$space_owner", fg = "${palette.stateFor(variant).idleStale}", bold = false, dim = false }`,
+      );
+      const retiredCell = disabled.blocks[i]
+        .split('\n')
+        .find((line) => line.includes(`token = "$space_working_${disabled.roster.at(-1)}"`));
+      assert.equal(
+        enabled.blocks[i].replace(ownerCell[0], ''),
+        disabled.blocks[i].replace(`${retiredCell}\n`, ''),
+        'owner replaces only one working cell',
+      );
+      assert(/token = "\$space_label"[^\n]+\n    \{ token = "\$space_owner"/.test(enabled.blocks[i]));
+    }
+    const noParentSetting = inspect(
+      [ws('a', null, 'Alpha'), ws('b', null, 'Alpha')],
+      'parent_label_token = "project_name"\nspace_owner = true\n',
+    );
+    assert.equal(noParentSetting.spaceTokens.a.space_owner, 'Alpha');
+    assert.equal(noParentSetting.spaceTokens.b.space_owner, 'Alpha');
+  });
+  check('11 owner with every Spaces mark stays within sixteen tokens', () => {
+    const list = [ws('parent', null, 'Alpha'), ws('child', 'parent')];
+    const disabled = inspect(list, settings);
+    const retired = disabled.roster.at(-1);
+    const enabled = inspect(list, settings + 'space_owner = true\n', undefined, false, retired);
+    assert.deepEqual(enabled.overLimit, [false, false], 'upstream limit check rejects owner rows');
+    assert.deepEqual(enabled.roster, disabled.roster.slice(0, -1));
+    assert.equal(enabled.workingTokens[retired], 'space_working_other', 'reserved vendor must use other');
+    assert.deepEqual(
+      enabled.retired,
+      [`space_working_${retired}`, ...disabled.retired],
+      'reserved working mark must be retired',
+    );
+    for (const [id] of enabled.spaceReports) {
+      const first = enabled.spaceReports.find(([workspace]) => workspace === id)[1];
+      assert.deepEqual(
+        Object.keys(first).sort(),
+        enabled.retired.slice().sort(),
+        'clear retired marks before publication',
+      );
+      assert(Object.values(first).every((value) => value === null));
+    }
+    for (const block of enabled.blocks) {
+      for (const vendor of enabled.roster) assert(block.includes(`token = "$space_working_${vendor}"`));
+      for (const vendor of palette.brandVendors) assert(block.includes(`token = "$space_logo_${vendor}"`));
+      for (const token of ['blocked', 'working_other', 'done', 'idle', 'unknown', 'none', 'label', 'owner']) {
+        assert(block.includes(`token = "$space_${token}"`), `missing ${token}`);
+      }
+    }
+    assert.equal(enabled.spaceTokens.child.space_owner, 'Alpha');
+    assert(enabled.spaceTokens.child.space_working_other, 'reserved vendor must publish a working mark');
+    assert.equal(enabled.spaceTokens.child[`space_working_${retired}`], null, 'retired mark must stay cleared');
+    for (const vendor of palette.brandVendors) assert(enabled.spaceTokens.child[`space_logo_${vendor}`], vendor);
+  });
   check('9 token-family checkouts no longer parent token-free git worktrees', () => {
     const list = [
       ws('parent'),
@@ -764,6 +865,29 @@ if (unstable) {
         const published = JSON.stringify([result.paneTokens, result.spaceTokens, result.cleared]);
         for (const { label } of list) assert(!published.includes(label), `published raw label ${label}`);
       }
+    }
+  });
+  check('13 disabled owner clears stale tokens once before publication and on removal', () => {
+    const list = [ws('parent', null, 'Alpha'), ws('child', 'parent')];
+    for (const workspace of list) workspace.tokens.space_owner = 'stale-owner';
+    for (const toml of [
+      settings,
+      settings + 'space_owner = false\n',
+      'parent_token = "project_parent"\nspace_owner = true\n',
+    ]) {
+      const result = inspect(list, toml);
+      for (const { workspace_id } of list) {
+        const reports = result.stateReports.filter(([id]) => id === workspace_id).map(([, tokens]) => tokens);
+        assert.equal(reports[0].space_owner, null, 'clear stale owner before state publication');
+        assert.equal(reports.filter((tokens) => 'space_owner' in tokens).length, 1, 'clear disabled owner once');
+        assert.equal(result.spaceTokens[workspace_id].space_owner, null);
+        assert.equal(result.afterOwnerChange[workspace_id].space_owner, null);
+        assert(reports.every((tokens) => Object.keys(tokens).length <= 16));
+      }
+      assert.equal(result.cleared.space_owner, null);
+      const cleared = {};
+      for (const [, tokens] of result.spaceReports.slice(result.stateReports.length)) Object.assign(cleared, tokens);
+      assert.equal(cleared.space_owner, null, 'removal must send an owner clear');
     }
   });
 }
