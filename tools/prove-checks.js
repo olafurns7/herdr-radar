@@ -125,6 +125,12 @@ const cases = [
   ],
   [
     'lib/config.js',
+    'spaceLogoNames: raw.space_logo_names !== false,',
+    'spaceLogoNames: raw.space_logo_names === true,',
+    'space logo names: unset config silently drops vendor names',
+  ],
+  [
+    'lib/config.js',
     "attentionToken: typeof raw.attention_token === 'string' ? raw.attention_token : '',",
     "attentionToken: typeof raw.attention_token === 'string' ? raw.attention_token : 'taskr_owner_ask',",
     'attention: unset config silently reads an owner-ask token',

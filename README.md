@@ -250,6 +250,7 @@ the config file and restarts the daemon.
 | `parent_label_token` | `""` | workspace token whose value names a family when its parent is absent |
 | `space_owner` | `false` | show the family label after a member's name in Spaces; needs `parent_label_token` |
 | `attention_token` | `""` | pane token another plugin sets while an agent waits on its owner; any value but empty or `0` shows the pane as blocked |
+| `space_logo_names` | `true` | write each vendor's name beside its logo on a Spaces row; `false` shows the logo alone (a vendor with no logo keeps its name) |
 | `row_label` | `title` | what names an agent row: `title`, `tab` (the tab's name) or `both`; replaces `show_tab` |
 | `trim_group_prefix` | `true` | drop the workspace name from a title when the header above already shows it |
 | `worktree_mark` | `U+F418` | the mark on a worktree header, needs a Nerd Font; empty for none |

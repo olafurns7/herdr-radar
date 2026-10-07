@@ -25,6 +25,10 @@
   names a pane token, such as taskr's `taskr_owner_ask`. While its value is
   anything but empty or `0`, the pane shows Herdr's blocked state: red title,
   pulse, and the blocked Spaces mark. Off by default.
+- **Spaces rows can show vendor logos without names.** Set
+  `space_logo_names = false` to keep only each vendor's logo on a
+  workspace's Spaces row. A vendor with no logo keeps its name. On by
+  default, which keeps today's output.
 
 ## 1.4.2 — 2026-10-04
 

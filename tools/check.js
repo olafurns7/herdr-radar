@@ -541,7 +541,7 @@ if (unstable) {
       const spaces = desiredOrder(order, keys.wsKeys, tree.parents);
       const spacesAgain = desiredOrder(spaces, keys.wsKeys, tree.parents);
       console.log(JSON.stringify({
-        config: [config.parentToken, config.parentLabelToken, config.spaceOwner, config.attentionToken],
+        config: [config.parentToken, config.parentLabelToken, config.spaceOwner, config.attentionToken, config.spaceLogoNames],
         parents: [...tree.parents], worktrees: [...tree.worktrees], families: [...tree.familyLabels],
         owners: [...tree.owners], keys: [...keys.wsKeys], paneTokens,
         roster: palette.spaceWorkingVendors, retired: state.RETIRED_SPACE_TOKENS, spaceReports, stateReports,
@@ -611,9 +611,9 @@ if (unstable) {
     const before = inspect(list);
     const explicit = inspect(
       list,
-      'parent_token = ""\nparent_label_token = ""\nspace_owner = true\nattention_token = ""\n',
+      'parent_token = ""\nparent_label_token = ""\nspace_owner = true\nattention_token = ""\nspace_logo_names = true\n',
     );
-    assert.deepEqual(before.config, ['', '', false, '']);
+    assert.deepEqual(before.config, ['', '', false, '', true]);
     assert.deepEqual(before.parents, [['branch', 'main']]);
     assert.deepEqual(before.worktrees, [['branch', 'r']]);
     for (const field of ['parents', 'keys', 'paneTokens', 'spaceTokens', 'blocks', 'spaces', 'recent']) {
@@ -624,9 +624,21 @@ if (unstable) {
     assert(before.paneTokens['branch:p'].group.includes('└─'));
     assert.equal(before.paneTokens['main:p'].gap, null);
     assert.deepEqual(
-      inspect(list, 'parent_token = true\nparent_label_token = 7\nspace_owner = "true"\nattention_token = 1\n').config,
-      ['', '', false, ''],
+      inspect(
+        list,
+        'parent_token = true\nparent_label_token = 7\nspace_owner = "true"\nattention_token = 1\nspace_logo_names = "false"\n',
+      ).config,
+      ['', '', false, '', true],
     );
+    // Every brand vendor working in one workspace: the logo row with names,
+    // the same whether space_logo_names is unset or explicitly true.
+    const vendor = palette.brandVendors[0];
+    const named = inspect(list, '', undefined, false, vendor);
+    assert.deepEqual(
+      inspect(list, 'space_logo_names = true\n', undefined, false, vendor).spaceTokens,
+      named.spaceTokens,
+    );
+    assert(named.spaceTokens.branch[`space_logo_${vendor}`].endsWith(` ${vendor}`));
   });
   check('2 token parent overrides git', () => {
     const result = inspect(
