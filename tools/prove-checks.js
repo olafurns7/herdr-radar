@@ -110,6 +110,20 @@ const cases = [
     'parent tokens 7: Spaces keeps a child ahead of its parent',
   ],
   [
+    'lib/state.js',
+    '    if (current && asked && `name_${state}` === ASKED_TOKEN) tokens[ASKED_TOKEN] = ASKED;\n',
+    '',
+    'attention: an owner-ask badge reads back as a held question',
+    true,
+    'test/attention-token.test.js',
+  ],
+  [
+    'lib/frame.js',
+    '      if (!present.has(parent) && familyLabels.has(parent) && present.has(up)) parentOf.set(parent, up);',
+    '',
+    'parent tokens 15: a root with no agent drops its checkout',
+  ],
+  [
     'lib/config.js',
     "attentionToken: typeof raw.attention_token === 'string' ? raw.attention_token : '',",
     "attentionToken: typeof raw.attention_token === 'string' ? raw.attention_token : 'taskr_owner_ask',",
@@ -117,8 +131,8 @@ const cases = [
   ],
   [
     'lib/frame.js',
-    "    if (entry.attention) display = 'blocked';\n",
-    '',
+    "    if (entry.attention && display !== 'blocked') {",
+    '    if (false) {',
     'attention: an owner ask no longer shows as blocked',
     true,
     'test/attention-token.test.js',
@@ -132,7 +146,7 @@ const cases = [
   [
     'lib/state.js',
     "      if (outer) stem = lastChild.get(outer) === parent ? '   ' : '│  ';",
-    '',
+    "      if (outer) stem = '';",
     "parent tokens 14: a nested root's children lose the outer stem",
   ],
   [

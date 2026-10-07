@@ -130,3 +130,84 @@ test("the workspace's Spaces mark becomes blocked", async (t) => {
   await Promise.all(jobs);
   assert(sent.space_blocked, 'workspace mark is not blocked');
 });
+
+// The real loop: what one frame publishes is what the next snapshot reads
+// back, and a daemon restart is a new Frame reading the same tokens.
+function pane(t, status) {
+  const published = {};
+  const live = { status, ask: null };
+  t.mock.method(herdr, 'reportMetadataAsync', async (_pane, _source, tokens) => {
+    for (const [name, value] of Object.entries(tokens)) {
+      if (value === null) delete published[name];
+      else published[name] = value;
+    }
+    return true;
+  });
+  t.mock.method(herdr, 'agentsAsync', async () => [
+    agent('loop', live.status, { ...published, ...(live.ask === null ? {} : { taskr_owner_ask: live.ask }) }),
+  ]);
+  const keys = { minuteKey: () => null, wsKeys: new Map(), tabKeys: new Map() };
+  const step = async (frame, at) => {
+    const [seen] = await state.snapshot();
+    const display = frame.displayFor(seen, at, []);
+    const jobs = [];
+    frame.paneJobs(seen, display, { tabs: new Map(), keys, indent: '', spinStep: 0 }, at, [], jobs);
+    await Promise.all(jobs);
+    return display;
+  };
+  return { live, published, step, frame: () => frameFor('loop') };
+}
+
+function holds(t) {
+  attention(t, 'taskr_owner_ask');
+  const before = config.blockedHoldUntilAnswered;
+  config.blockedHoldUntilAnswered = true;
+  t.after(() => {
+    config.blockedHoldUntilAnswered = before;
+  });
+}
+
+test('an owner ask fed back through the snapshot is never held', async (t) => {
+  holds(t);
+  const { live, step, frame: make } = pane(t, 'idle');
+  const frame = make();
+  live.ask = '1';
+  assert.equal(await step(frame, NOW), 'blocked');
+  assert.equal(await step(frame, NOW + 1000), 'blocked');
+  assert(!frame.blockedSince.has('loop'), 'the ask was adopted as a held question');
+  live.ask = '0';
+  assert.notEqual(await step(frame, NOW + 2000), 'blocked');
+  assert.notEqual(await step(frame, NOW + 3000), 'blocked');
+});
+
+test('a restart does not hold an ask that was cleared meanwhile', async (t) => {
+  holds(t);
+  const { live, published, step, frame: make } = pane(t, 'idle');
+  live.ask = '2';
+  assert.equal(await step(make(), NOW), 'blocked');
+  assert(published.state_blocked, 'no blocked badge was published');
+  live.ask = null;
+  const restarted = make();
+  assert.notEqual(await step(restarted, NOW + 1000), 'blocked');
+  assert(!published.state_blocked, 'the stale badge stayed up');
+});
+
+test('a restart keeps showing an open ask, then lets it clear', async (t) => {
+  holds(t);
+  const { live, step, frame: make } = pane(t, 'done');
+  live.ask = '1';
+  await step(make(), NOW);
+  const restarted = make();
+  assert.equal(await step(restarted, NOW + 1000), 'blocked');
+  live.ask = '0';
+  assert.notEqual(await step(restarted, NOW + 2000), 'blocked');
+});
+
+test("Herdr's own question is still held across a restart", async (t) => {
+  holds(t);
+  const { live, published, step, frame: make } = pane(t, 'blocked');
+  assert.equal(await step(make(), NOW), 'blocked');
+  assert.equal(published.name_blocked, undefined, 'a native question was marked as an ask');
+  live.status = 'idle';
+  assert.equal(await step(make(), NOW + 1000), 'blocked');
+});

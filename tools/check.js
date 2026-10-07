@@ -923,6 +923,30 @@ if (unstable) {
       ['ya:p'],
     );
   });
+  check('15 a root with no agent keeps its members under the checkout', () => {
+    // Activity runs hub, other, xa, xb: the unrelated workspace sits between
+    // the hub and its grandchildren, so only the family link keeps them one.
+    const list = [
+      ws('hub', null, null, false),
+      ws('other'),
+      ws('xa', 'ox', null, true),
+      ws('xb', 'ox', null, true),
+      { ...ws('ox', null, null, true), no_agent: true },
+    ];
+    const result = inspect(list, settings);
+    assert.deepEqual(result.grouped, ['hub', 'xb', 'xa', 'other']);
+    contiguous(result.spaces, ['hub', 'ox', 'xa', 'xb']);
+    assert.equal(result.spaces[0], 'hub');
+    assert(result.spaces.indexOf('ox') < result.spaces.indexOf('xa'));
+    const tokens = (id) => result.paneTokens[`${id}:p`];
+    assert(tokens('xb').group_parent.startsWith(`${state.INDENT}└─ `), 'header lost its hub corner');
+    assert(tokens('xb').group_parent.endsWith('ox'));
+    assert(tokens('xb').group.startsWith('\u200b   ├─ '), 'first member lost its stem');
+    assert(tokens('xa').group.startsWith(`${state.INDENT}   └─ `));
+    assert.equal(tokens('hub').gap, null, 'a spacer split the family');
+    assert.equal(tokens('xb').gap, null);
+    assert(tokens('xa').gap);
+  });
 }
 
 // row_label: each mode names the row as documented, and a tab-only row keeps
