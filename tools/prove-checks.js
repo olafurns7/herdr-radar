@@ -110,6 +110,20 @@ const cases = [
     'parent tokens 7: Spaces keeps a child ahead of its parent',
   ],
   [
+    'lib/config.js',
+    "attentionToken: typeof raw.attention_token === 'string' ? raw.attention_token : '',",
+    "attentionToken: typeof raw.attention_token === 'string' ? raw.attention_token : 'taskr_owner_ask',",
+    'attention: unset config silently reads an owner-ask token',
+  ],
+  [
+    'lib/frame.js',
+    "    if (entry.attention) display = 'blocked';\n",
+    '',
+    'attention: an owner ask no longer shows as blocked',
+    true,
+    'test/attention-token.test.js',
+  ],
+  [
     'lib/state.js',
     '    if (!parent || links.has(root) || parents.has(parent)) continue;',
     '    continue;',

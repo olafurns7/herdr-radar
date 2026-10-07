@@ -21,6 +21,10 @@
   (`│  ├─` under a parent with siblings below it). The family sorts as one
   block, and the Spaces reorder keeps each parent ahead of its members.
   Chains and cycles stay one level deep.
+- **Owner questions from another plugin show as blocked.** `attention_token`
+  names a pane token, such as taskr's `taskr_owner_ask`. While its value is
+  anything but empty or `0`, the pane shows Herdr's blocked state: red title,
+  pulse, and the blocked Spaces mark. Off by default.
 
 ## 1.4.2 — 2026-10-04
 
