@@ -287,9 +287,12 @@ Put `project_name` on members only, because a workspace with that label and
 no honoured parent is drawn under a header of that label, even when it is
 the project's own workspace or the only member.
 
-A member's parent token overrides its git parent. Any workspace named as a
-valid token parent stays top-level: its own parent token and git parent are
-ignored, keeping token families one level deep. Self-links and unknown ids
+A member's parent token overrides its git parent. A workspace named as a
+valid token parent ignores its own parent token. It keeps its git parent
+when that checkout is not a token member itself, so a family is at most two
+levels deep: the repo's main checkout, then each token parent cut from it,
+then that parent's members, all drawn as one tree and kept together in both
+panels. A token parent in a chain or cycle stays top-level. Self-links and unknown ids
 are ignored; in a chain A → B → C, A joins B and B stays top-level; in a cycle
 neither link is honoured. An ignored link falls back to the family label,
 then to git grouping, unless the workspace is itself a token parent.

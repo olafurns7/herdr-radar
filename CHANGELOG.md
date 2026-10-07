@@ -5,7 +5,7 @@
 - **Workspace families can come from another plugin.** `parent_token` names
   the token carrying an open parent workspace id; `parent_label_token` names
   the family label, shared under one header when no parent is open. Token
-  parents override git grouping and stay top-level. Families stay together
+  parents override git grouping. Families stay together
   in the active view and workspace ordering; recent stays flat. Optional
   `space_owner` shows a subdued family label after each member's Spaces name.
   For example, `project_parent` and `project_name` group a project's members.
@@ -15,6 +15,12 @@
   cell, so the older vendors keep theirs. Its logo keeps its brand colour.
   Turning the owner setting off or removing the label setting clears the
   old owner token.
+- **Token families nest under their checkout.** With `parent_token` set, a
+  token parent that is a linked worktree stays under the repo's main
+  checkout, so the Agents panel draws hub → parent → members two levels deep
+  (`│  ├─` under a parent with siblings below it). The family sorts as one
+  block, and the Spaces reorder keeps each parent ahead of its members.
+  Chains and cycles stay one level deep.
 
 ## 1.4.2 — 2026-10-04
 

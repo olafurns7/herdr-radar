@@ -890,6 +890,37 @@ if (unstable) {
       assert.equal(cleared.space_owner, null, 'removal must send an owner clear');
     }
   });
+  check('14 token roots cut from a checkout nest two deep', () => {
+    const list = [
+      ws('xa', 'ox', null, true),
+      ws('hub', null, null, false),
+      ws('ox', null, null, true),
+      ws('ya', 'oy', null, true),
+      ws('oy', null, null, true),
+      ws('xb', 'ox', null, true),
+    ];
+    const result = inspect(list, settings);
+    // The fixture stamps activity by list position: xb is the busiest, so
+    // ox's branch ranks first and oy closes the family.
+    assert.deepEqual(result.grouped, ['hub', 'ox', 'xb', 'xa', 'oy', 'ya']);
+    contiguous(result.spaces, ['hub', 'ox', 'xa', 'xb', 'oy', 'ya']);
+    assert.equal(result.spaces[0], 'hub');
+    assert(result.spaces.indexOf('ox') < result.spaces.indexOf('xa'));
+    assert(result.spaces.indexOf('oy') < result.spaces.indexOf('ya'));
+    assert.deepEqual(result.spacesAgain, result.spaces);
+    const group = (id) => result.paneTokens[`${id}:p`].group;
+    assert(group('ox').startsWith(`${state.INDENT}├─ `));
+    assert(group('xb').startsWith(`${state.INDENT}│  ├─ `));
+    assert(group('xa').startsWith(`${state.INDENT}│  └─ `));
+    assert(group('oy').startsWith(`${state.INDENT}└─ `));
+    assert(group('ya').startsWith(`${state.INDENT}   └─ `));
+    assert.deepEqual(
+      Object.entries(result.paneTokens)
+        .filter(([, t]) => t.gap)
+        .map(([pane]) => pane),
+      ['ya:p'],
+    );
+  });
 }
 
 // row_label: each mode names the row as documented, and a tab-only row keeps

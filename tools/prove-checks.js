@@ -105,9 +105,21 @@ const cases = [
   ],
   [
     'lib/workspace-order.js',
-    '      if (index > 0) group.ids.unshift(...group.ids.splice(index, 1));',
-    '',
+    '  return [...out, ...ids.filter((id) => !seen.has(id))];',
+    '  return ids;',
     'parent tokens 7: Spaces keeps a child ahead of its parent',
+  ],
+  [
+    'lib/state.js',
+    '    if (!parent || links.has(root) || parents.has(parent)) continue;',
+    '    continue;',
+    'parent tokens 14: a token root floats off its checkout',
+  ],
+  [
+    'lib/state.js',
+    "      if (outer) stem = lastChild.get(outer) === parent ? '   ' : '│  ';",
+    '',
+    "parent tokens 14: a nested root's children lose the outer stem",
   ],
   [
     'lib/state.js',
@@ -611,8 +623,8 @@ const cases = [
   ],
   [
     'lib/state.js',
-    "if (indent) {\n      if (isLastChild) corner = '└─ ';",
-    "if (true) {\n      if (isLastChild) corner = '└─ ';",
+    'if (indent) {\n      if (isLastChild) corner = `${stem}└─ `;',
+    'if (true) {\n      if (isLastChild) corner = `${stem}└─ `;',
     'groups: a worktree corner survives zero indent',
     true,
     'test/indent-zero.test.js',
